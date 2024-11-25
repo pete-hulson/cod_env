@@ -15,6 +15,7 @@
 *.tds
 *.bar
 *.cov
+*.cor
 *.dep
 *.hes
 *.rpt
@@ -25,9 +26,11 @@
 *.ecm
 *.mc2
 *.mcm
+*.rep
 *.hst
 *.psv
 *.ss_new
+*.txt
 gradient.1
 gradient.2
 gradient.3
