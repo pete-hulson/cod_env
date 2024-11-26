@@ -3,18 +3,16 @@
 #' 
 #' function to get systems ss3 exe name
 #' @param supported_os supported operting systems (default = c("Windows", "Darwin"))
-#' @param executables list of possible ss3 exe names by operating system (default = list("Windows" = c("ss.exe", "ss3.exe"), "Darwin" = c("ss_osx")))
 #' 
 ss3_exename <- function(dir,
-                        supported_os = c("Windows", "Darwin"), 
-                        executables = list("Windows" = c("ss.exe", "ss3.exe"), "Darwin" = c("ss_osx"))){
+                        supported_os = c("Windows", "Darwin")){
   
   # Get the operating system information
   os_info <- Sys.info()
   
   # figure out the ss3 executable name to run
   # list the possible exes
-  executables <- list("Windows" = c("ss.exe", "ss3.exe"), "Darwin" = c("ss_osx"))
+  executables <- list("Windows" = c("ss.exe", "ss3.exe"), "Darwin" = c("ss3"))
   # set the exe name
   if (os_info["sysname"] %in% names(executables)) {
     # Get the list of executables for the detected operating system
