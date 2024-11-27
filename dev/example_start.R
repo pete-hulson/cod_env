@@ -1,5 +1,9 @@
 # example script to run environmental links for goa pcod ----
 
+#BEFORE RUNNING
+#CHECK YOUR r4ss VERSION
+#this script written with r4ss 1.50.0 for SS3 release 3.30.23
+#using r4ss 1.49 or older will result in errors in 'read and evaluate results' section
 
 # load necessary packages ----
 ## cran packages ----
@@ -40,7 +44,8 @@ purrr::map(here::here("R", source_files), source)
 r4ss::get_ss3_exe(dir = here::here('base_mdl'))
 
 # second, get your operating system's exe name to be able to run model
-exename <- ss3_exename(dir = here::here('base_mdl'))
+#exename <- ss3_exename(dir = here::here('base_mdl'))
+exename <- "ss3"
 
 # now, run the model (note that there are other arguments in this function to check out)
 run_ss3_model(folder = 'base_mdl',
@@ -94,7 +99,7 @@ r4ss::SS_writedat_3.30(datafile,
                        overwrite = TRUE)
   
 # almost to end, get your operating system's exe name to be able to run model
-exename <- ss3_exename(dir = here::here('rsch', 'llq'))
+#exename <- ss3_exename(dir = here::here('rsch', 'llq'))
 
 # now, run the model (note that there are other arguments in this function to check out)
 run_ss3_model(folder = 'rsch/llq',
@@ -157,7 +162,7 @@ r4ss::SS_writectl_3.30(ctllist = ctlfile,
                        overwrite = TRUE)
 
 # almost to end, get your operating system's exe name to be able to run model
-exename <- ss3_exename(dir = here::here('rsch', 'grwth'))
+#exename <- ss3_exename(dir = here::here('rsch', 'grwth'))
 
 # now, run the model (note that there are other arguments in this function to check out)
 run_ss3_model(folder = 'rsch/grwth',
@@ -169,7 +174,12 @@ run_ss3_model(folder = 'rsch/grwth',
 
 # get model output for base model and alt model (growth model)
 output <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
-                                       here::here('rsch', 'grwth')))
+                                       here::here('rsch', 'llq')))
+
+#test <- r4ss::SS_output(dir = here::here('base_mdl'),
+                printstats = FALSE)
+
+#r4ss::SS_output(dir = here::here('rsch', 'llq'))
 
 # run function to summarize output into a list, a big list...
 summ_out <- r4ss::SSsummarize(output)
