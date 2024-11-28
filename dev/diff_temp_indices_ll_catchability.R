@@ -111,7 +111,7 @@ run_ss3_model(folder = 'rsch/llq_cfsr',
 
 # first, start new model folder within 'rsch' folder
 start_ss_fldr(from = here::here('base_mdl'), 
-              to = here::here('rsch', 'llq_hycom'))
+              to = here::here('rsch', 'llq_hycom')) #
 
 # next, read in data file to be able to change env link data
 # define datafile name
@@ -122,18 +122,32 @@ datafile <- r4ss::SS_readdat_3.30(here::here('rsch', 'llq_hycom', datafilename))
 # and then, change the env data
 
 # get hycom data
-cfsr <- vroom::vroom(here::here('data', 'raw_cfsr.csv'))
+temp_dat <- vroom::vroom(here::here('data', 'scaled_temp_by_month.csv'))
+temp_dat <- temp_dat %>% rename(hycom='mean_monthly',
+                                        gak='mean_gak_monthly_temp',
+                                        cfsr='cfsr_temp')
 
+jun_50_hycom <- temp_dat[which(temp_dat$Month==6&temp_dat$depth=="50m"),names(temp_dat) %in% 
+                        c("Year","hycom")]
+jun_50_hycom <- na.omit(jun_50_hycom)
 # hycom is already monthly mean and z-scored
 #here I am using 50m depth and June mean
-env_indx_hycom
+
+
+
+env_indx_hycom <- jun_50_hycom
+
+#rename to work with function
+env_indx_hycom <- env_indx_hycom %>% rename(year='Year',
+                                      value='hycom')
 
 # format for ss3 data file
 ss3indx_hycom <- ss3_envlnk(env_indx_hycom,
                       var = 1)
 
 # replace the env data in the ss3 dat file with this new data
-datafile$envdat <- ss3indx_hycom
+#stitch hycom (starts in 1995) to cfsr before 1994
+datafile$envdat[which(datafile$year>1994)] <- ss3indx_hycom
 
 # and, write datafile
 r4ss::SS_writedat_3.30(datafile,
@@ -154,7 +168,7 @@ run_ss3_model(folder = 'rsch/llq_hycom',
 
 # first, start new model folder within 'rsch' folder
 start_ss_fldr(from = here::here('base_mdl'), 
-              to = here::here('rsch', 'llq_gak'))
+              to = here::here('rsch', 'llq_gak'))#
 
 # next, read in data file to be able to change env link data
 # define datafile name
@@ -164,19 +178,28 @@ datafile <- r4ss::SS_readdat_3.30(here::here('rsch', 'llq_gak', datafilename))
 
 # and then, change the env data
 
-# get gak data
-cfsr <- vroom::vroom(here::here('data', 'raw_cfsr.csv'))
-
+jun_50_gak <- temp_dat[which(temp_dat$Month==6&temp_dat$depth=="50m"),names(temp_dat) %in% 
+                           c("Year","gak")]
+jun_50_gak <- na.omit(jun_50_gak)
 # gak is already monthly mean and z-scored
 #here I am using 50m depth and June mean
-env_indx_gak
+
+
+
+env_indx_gak <- jun_50_gak
+
+#rename to work with function
+env_indx_gak <- env_indx_gak %>% rename(year='Year',
+                                            value='gak')
 
 # format for ss3 data file
 ss3indx_gak <- ss3_envlnk(env_indx_gak,
                             var = 1)
 
 # replace the env data in the ss3 dat file with this new data
-datafile$envdat <- ss3indx_gak
+#stitch gak (starts CONSISTENTLY in 2004) to cfsr before 2004
+datafile$envdat[which(datafile$year>2003)] <- ss3indx_gak[which(ss3indx_gak$year>2003),] #UPDATE YEAR HERE
+#FOR GAK there are missing years, need to decide how to handle
 
 # and, write datafile
 r4ss::SS_writedat_3.30(datafile,
@@ -197,11 +220,11 @@ run_ss3_model(folder = 'rsch/llq_gak',
 
 
 
-# code example to read and evaluate results, using growth run as example ----
+#read and evaluate results----
 
-# get model output for base model and alt model (growth model)
-output <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
-                                       here::here('rsch', 'llq_cfsr')))
+# get model output for base model and alt model
+outputH <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
+                                       here::here('rsch', 'llq_hycom')))
 
 #test <- r4ss::SS_output(dir = here::here('base_mdl'),
 printstats = FALSE)
@@ -209,13 +232,13 @@ printstats = FALSE)
 #r4ss::SS_output(dir = here::here('rsch', 'llq'))
 
 # run function to summarize output into a list, a big list...
-summ_out <- r4ss::SSsummarize(output)
+summ_outH <- r4ss::SSsummarize(outputH)
 
 # example to look at likelihoods
-summ_out$likelihoods
+summ_outH$likelihoods
 
 # example to look at parameter estimates
-summ_out$pars
+summ_outH$pars
 
 # example function to plot output
-r4ss::SSplotComparisons(summ_out)
+r4ss::SSplotComparisons(summ_outH)
