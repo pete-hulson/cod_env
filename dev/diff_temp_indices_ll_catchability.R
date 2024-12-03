@@ -147,12 +147,12 @@ ss3indx_hycom <- ss3_envlnk(env_indx_hycom,
 
 # replace the env data in the ss3 dat file with this new data
 #stitch hycom (starts in 1995) to cfsr before 1994
-datafile$envdat[which(datafile$year>1994)] <- ss3indx_hycom
+datafile$envdat[which(datafile$envdat$year>1994),] <- ss3indx_hycom
 
 # and, write datafile
 r4ss::SS_writedat_3.30(datafile,
                        here::here(here::here('rsch', 'llq_hycom'), datafilename), 
-                       overwrite = TRUE)
+                       overwrite = TRUE) #this step seems to not be working
 
 # almost to end, get your operating system's exe name to be able to run model
 #exename <- ss3_exename(dir = here::here('rsch', 'llq_hycom'))
@@ -180,11 +180,13 @@ datafile <- r4ss::SS_readdat_3.30(here::here('rsch', 'llq_gak', datafilename))
 
 jun_50_gak <- temp_dat[which(temp_dat$Month==6&temp_dat$depth=="50m"),names(temp_dat) %in% 
                            c("Year","gak")]
-jun_50_gak <- na.omit(jun_50_gak)
+#jun_50_gak <- na.omit(jun_50_gak)
 # gak is already monthly mean and z-scored
 #here I am using 50m depth and June mean
 
-
+#fill in zeros for NAs, but cut off at beginning of time series 1998 (first data) AND 2004 (first consistent)
+jun_50_gak$gak[which(is.na(jun_50_gak$gak)==TRUE)] <- 0
+jun_50_gak <- jun_50_gak[which(jun_50_gak$Year>1997),]
 
 env_indx_gak <- jun_50_gak
 
@@ -198,7 +200,7 @@ ss3indx_gak <- ss3_envlnk(env_indx_gak,
 
 # replace the env data in the ss3 dat file with this new data
 #stitch gak (starts CONSISTENTLY in 2004) to cfsr before 2004
-datafile$envdat[which(datafile$year>2003)] <- ss3indx_gak[which(ss3indx_gak$year>2003),] #UPDATE YEAR HERE
+datafile$envdat[which(datafile$envdat$year>2003),] <- ss3indx_gak[which(ss3indx_gak$year>2003),] #UPDATE YEAR HERE
 #FOR GAK there are missing years, need to decide how to handle
 
 # and, write datafile
@@ -225,20 +227,44 @@ run_ss3_model(folder = 'rsch/llq_gak',
 # get model output for base model and alt model
 outputH <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
                                        here::here('rsch', 'llq_hycom')))
+outputG <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
+                                        here::here('rsch', 'llq_gak')))
 
 #test <- r4ss::SS_output(dir = here::here('base_mdl'),
-printstats = FALSE)
+#printstats = FALSE)
 
-#r4ss::SS_output(dir = here::here('rsch', 'llq'))
+h_out <- r4ss::SS_output(dir = here::here('rsch', 'llq_hycom'))
+b_out <- r4ss::SS_output(dir = here::here('base_mdl'))
+g_out <- r4ss::SS_output(dir = here::here('rsch', 'llq_gak'))
 
 # run function to summarize output into a list, a big list...
 summ_outH <- r4ss::SSsummarize(outputH)
+summ_outG <- r4ss::SSsummarize(outputG)
 
 # example to look at likelihoods
 summ_outH$likelihoods
+summ_outG$likelihoods
 
 # example to look at parameter estimates
 summ_outH$pars
+summ_outG$pars
 
 # example function to plot output
-r4ss::SSplotComparisons(summ_outH)
+r4ss::SSplotComparisons(summ_outH, print=TRUE, plotdir = here::here('rsch', 'llq_hycom'))
+r4ss::SSplotIndices(summ_outH, subplots = 8)
+
+r4ss::SSplotComparisons(summ_outG, print=TRUE, plotdir = here::here('rsch', 'llq_gak'))
+
+r4ss::SS_plots(h_out)
+r4ss::SS_plots(b_out)
+r4ss::SS_plots(g_out)
+
+
+#calc AIC
+aic_mod1 <- (2*summ_outH$npars[1]) - (2*summ_outH$likelihoods[1,1])
+aic_mod2 <- (2*summ_outH$npars[2]) - (2*summ_outH$likelihoods[1,2])
+aic_mod2-aic_mod1
+
+aic_mod1 <- (2*summ_outG$npars[1]) - (2*summ_outG$likelihoods[1,1])
+aic_mod3 <- (2*summ_outG$npars[2]) - (2*summ_outG$likelihoods[1,2])
+aic_mod3-aic_mod1
