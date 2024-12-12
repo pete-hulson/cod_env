@@ -230,20 +230,33 @@ outputH <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
 outputG <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
                                         here::here('rsch', 'llq_gak')))
 
+#compare HYCOM and GAK to CFSR
+outputCH <- r4ss::SSgetoutput(dirvec = c(here::here('rsch', 'llq'),
+                                        here::here('rsch', 'llq_hycom')))
+outputCG <- r4ss::SSgetoutput(dirvec = c(here::here('rsch', 'llq'),
+                                        here::here('rsch', 'llq_gak')))
+
 #test <- r4ss::SS_output(dir = here::here('base_mdl'),
 #printstats = FALSE)
 
 h_out <- r4ss::SS_output(dir = here::here('rsch', 'llq_hycom'))
 b_out <- r4ss::SS_output(dir = here::here('base_mdl'))
 g_out <- r4ss::SS_output(dir = here::here('rsch', 'llq_gak'))
+c_out <- r4ss::SS_output(dir = here::here('rsch', 'llq'))
 
 # run function to summarize output into a list, a big list...
 summ_outH <- r4ss::SSsummarize(outputH)
 summ_outG <- r4ss::SSsummarize(outputG)
 
+summ_outCH <- r4ss::SSsummarize(outputCH)
+summ_outCG <- r4ss::SSsummarize(outputCG)
+
 # example to look at likelihoods
 summ_outH$likelihoods
 summ_outG$likelihoods
+
+summ_outCH$likelihoods
+summ_outCG$likelihoods
 
 # example to look at parameter estimates
 summ_outH$pars
@@ -258,9 +271,10 @@ r4ss::SSplotComparisons(summ_outG, print=TRUE, plotdir = here::here('rsch', 'llq
 r4ss::SS_plots(h_out)
 r4ss::SS_plots(b_out)
 r4ss::SS_plots(g_out)
+r4ss::SS_plots(c_out)
 
 
-#calc AIC
+#calc AIC to base
 aic_mod1 <- (2*summ_outH$npars[1]) - (2*summ_outH$likelihoods[1,1])
 aic_mod2 <- (2*summ_outH$npars[2]) - (2*summ_outH$likelihoods[1,2])
 aic_mod2-aic_mod1
@@ -268,3 +282,74 @@ aic_mod2-aic_mod1
 aic_mod1 <- (2*summ_outG$npars[1]) - (2*summ_outG$likelihoods[1,1])
 aic_mod3 <- (2*summ_outG$npars[2]) - (2*summ_outG$likelihoods[1,2])
 aic_mod3-aic_mod1
+
+
+#calc AIC to cfsr
+aic_mod1 <- (2*summ_outCH$npars[1]) - (2*summ_outCH$likelihoods[1,1])
+aic_mod2 <- (2*summ_outCH$npars[2]) - (2*summ_outCH$likelihoods[1,2])
+aic_mod2-aic_mod1
+
+aic_mod1 <- (2*summ_outCG$npars[1]) - (2*summ_outCG$likelihoods[1,1])
+aic_mod3 <- (2*summ_outCG$npars[2]) - (2*summ_outCG$likelihoods[1,2])
+aic_mod3-aic_mod1
+
+
+
+
+
+
+
+
+
+
+# want to try out logistic ----
+
+# first, start new model folder within 'rsch' folder
+start_ss_fldr(from = here::here('base_mdl'), 
+              to = here::here('rsch', 'logis'))
+
+# next, read in data file to be able to change env link data
+# define datafile name
+datafilename <- list.files(here::here('rsch', 'logis'), pattern = "GOAPcod")
+# get datafile input
+datafile <- r4ss::SS_readdat_3.30(here::here('rsch', 'grwth', datafilename))
+
+#use cfsr for now just change link
+
+
+# next, read in ctl file to be able to change the parameters that you link to growth
+# define ctl file name
+ctlfilename <- list.files(here::here('rsch', 'logis'), pattern = '.ctl')
+# get datafile input
+ctlfile <- r4ss::SS_readctl_3.30(here::here('rsch', 'logis', ctlfilename))
+
+# let's play with Lmin, there are 2 important steps, and here's an example to do that
+# and, check out https://nmfs-ost.github.io/ss3-doc/SS330_User_Manual_release.html#tvOrder 
+# for a description on how to define ss3 parameters and what links are available
+
+ctlfile$Q_parms$`env_var&link`[which(rownames(ctlfile$Q_parms) == 'LnQ_base_LLSrv(5)')] <- 401
+
+
+# and, write the new ctl file
+r4ss::SS_writectl_3.30(ctllist = ctlfile,
+                       outfile = here::here('rsch', 'grwth', ctlfilename),
+                       verbose = TRUE,
+                       overwrite = TRUE)
+
+# almost to end, get your operating system's exe name to be able to run model
+#exename <- ss3_exename(dir = here::here('rsch', 'grwth'))
+
+# now, run the model (note that there are other arguments in this function to check out)
+run_ss3_model(folder = 'rsch/logis',
+              exename)
+
+outputL <- r4ss::SSgetoutput(dirvec = c(here::here('base_mdl'),
+                                        here::here('rsch', 'logis')))
+summ_outL <- r4ss::SSsummarize(outputL)
+summ_outL$likelihoods
+
+r4ss::SSplotComparisons(summ_outL, print=TRUE, plotdir = here::here('rsch', 'llq_hycom'))
+
+l_out <- r4ss::SS_output(dir = here::here('rsch', 'logis'))
+r4ss::SS_plots(l_out)
+
