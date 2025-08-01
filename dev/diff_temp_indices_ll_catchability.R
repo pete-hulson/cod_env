@@ -122,9 +122,9 @@ datafile <- r4ss::SS_readdat_3.30(here::here('rsch', 'llq_hycom', datafilename))
 # and then, change the env data
 
 # get hycom data
-temp_dat <- vroom::vroom(here::here('data', 'scaled_temp_by_month.csv'))
+temp_dat <- vroom::vroom(here::here('data', 'demeaned_temp_by_month.csv')) #updated June 2025 to demeaned data w pre-2012 mean
 temp_dat <- temp_dat %>% rename(hycom='mean_monthly',
-                                        gak='mean_gak_monthly_temp',
+                                        gak='gak_best_temp',
                                         cfsr='cfsr_temp')
 
 jun_50_hycom <- temp_dat[which(temp_dat$Month==6&temp_dat$depth=="50m"),names(temp_dat) %in% 
@@ -147,7 +147,7 @@ ss3indx_hycom <- ss3_envlnk(env_indx_hycom,
 
 # replace the env data in the ss3 dat file with this new data
 #stitch hycom (starts in 1995) to cfsr before 1994
-datafile$envdat[which(datafile$envdat$year>1994),] <- ss3indx_hycom
+datafile$envdat[which(datafile$envdat$year>1994),] <- ss3indx_hycom[which(ss3indx_hycom$year<2025),]
 
 # and, write datafile
 r4ss::SS_writedat_3.30(datafile,
@@ -184,9 +184,9 @@ jun_50_gak <- temp_dat[which(temp_dat$Month==6&temp_dat$depth=="50m"),names(temp
 # gak is already monthly mean and z-scored
 #here I am using 50m depth and June mean
 
-#fill in zeros for NAs, but cut off at beginning of time series 1998 (first data) AND 2004 (first consistent)
+#fill in zeros for NAs, but new gak mostly complete after 1988 (except 1998)
 jun_50_gak$gak[which(is.na(jun_50_gak$gak)==TRUE)] <- 0
-jun_50_gak <- jun_50_gak[which(jun_50_gak$Year>1997),]
+jun_50_gak <- jun_50_gak[which(jun_50_gak$Year>1987),]
 
 env_indx_gak <- jun_50_gak
 
@@ -199,9 +199,9 @@ ss3indx_gak <- ss3_envlnk(env_indx_gak,
                             var = 1)
 
 # replace the env data in the ss3 dat file with this new data
-#stitch gak (starts CONSISTENTLY in 2004) to cfsr before 2004
-datafile$envdat[which(datafile$envdat$year>2003),] <- ss3indx_gak[which(ss3indx_gak$year>2003),] #UPDATE YEAR HERE
-#FOR GAK there are missing years, need to decide how to handle
+#stitch gak (starts CONSISTENTLY in 1988) to cfsr before 1988
+datafile$envdat[which(datafile$envdat$year>1987),] <- ss3indx_gak[which(ss3indx_gak$year>1987&ss3indx_gak$year<2025),] #updated June 2025
+#
 
 # and, write datafile
 r4ss::SS_writedat_3.30(datafile,
@@ -265,6 +265,11 @@ summ_outG$pars
 # example function to plot output
 r4ss::SSplotComparisons(summ_outH, print=TRUE, plotdir = here::here('rsch', 'llq_hycom'))
 r4ss::SSplotIndices(summ_outH, subplots = 8)
+
+r4ss::SSplotComparisons(summ_outCH, print=TRUE, plotdir = here::here('rsch', 'llq_hycom'))
+r4ss::SSplotComparisons(summ_outCG, print=TRUE, plotdir = here::here('rsch', 'llq_gak'))
+
+
 
 r4ss::SSplotComparisons(summ_outG, print=TRUE, plotdir = here::here('rsch', 'llq_gak'))
 
