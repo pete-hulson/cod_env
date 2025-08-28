@@ -11,11 +11,11 @@ library(tidyverse)
 
 #get size data=====
 wd <- getwd()
-surv_lpop <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_lpop.csv"))
-surv_apop <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_apop.csv"))
-
-surv_lenfreq <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_lenfreq.csv"))
-surv_age <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_age.csv"))
+# surv_lpop <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_lpop.csv"))
+# surv_apop <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_apop.csv"))
+# 
+# surv_lenfreq <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_lenfreq.csv"))
+# surv_age <- read.csv(paste0(wd,"/data/cod length data/survey/twl_srvy_age.csv"))
 
 ebs_goa_surv <- read.csv(paste0(wd,"/data/cod length data/survey/Krista_Age_data.csv"))
 
@@ -24,6 +24,8 @@ table(surv_age$year, surv_age$age)
 #for EBS, should NEBS be removed?
 
 ebs_goa_surv <- ebs_goa_surv %>% separate(CRUISE, into = c('year', 'cruise_num'), sep = 4)
+
+ebs_goa_surv$cohort <- as.numeric(ebs_goa_surv$year) - ebs_goa_surv$AGE
 
 table(ebs_goa_surv$year, ebs_goa_surv$AGE, ebs_goa_surv$REGION)
 
@@ -43,746 +45,58 @@ ggplot(ebs_goa_surv[which(ebs_goa_surv$AGE==5),], aes( START_LONGITUDE, START_LA
 ggplot(ebs_goa_surv[which(ebs_goa_surv$AGE==5),], aes( START_LONGITUDE, START_LATITUDE, col=WEIGHT)) + geom_point() + facet_wrap(~year)
 
 
-#fit some von Bs===================
+#get age-0 data=======
 
+age0dat <- read.csv(paste0(wd,"/data/EMA data/pcod_lengths_5-8-25.csv"))
 
-#from Franz
+age0dat <- age0dat %>% separate_wider_delim(haul_date, "/", names = c("month", "day", "year"))
 
-# Ludwig von Bertalanffy growth model:
-LvB <- function(t, k, L.inf, t0=0) {
-  L.inf*(1-exp(-k*(t-t0)))
-}
+#let's look at data
+table(age0dat$gear_performance) #good, satisfactory, and 4 questionable
+table(age0dat$region) #NBS (607) and SEBS (15054)
+table(age0dat$gear) #3 different types, limit to S tow_type=S and gear = CAN
+table(age0dat$gear, age0dat$region)
+table(age0dat$length_type) #SL (2029) AND TL (13633)
+table(age0dat$lhs_code) #A0, A1+, U
+table(age0dat$lhs_code, age0dat$length_type)
+table(age0dat$lhs_code, age0dat$region)
 
-# Explore some reasonable parameter values for starting values:
-# We need reasonable starting values for fitting a non-linear model!
-plot(LENGTH ~ AGE, data=ebs_goa_surv) #loaded in weight_age_exploration.R
-# Some trial values for paramters
-curve(LvB(x, k=0.25, L.inf=900), 0, 60, ylim=c(0,900), col=2, lwd=2, add=T)
-curve(LvB(x, k=0.2, L.inf=730), 0, 60, col=3, lwd=2, add=T)
-curve(LvB(x, k=0.07, L.inf=750, t0=-10), 0, 60, col=4, lwd=2, add=T)
-# top line OK
+ggplot(age0dat, aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~region)
+#Us seem too big
 
-### Fit LvB model across all years:
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.all <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv, start=START)
-summary(fit.all)
-cf <- coef(fit.all)
-cf
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv)
-curve(LvB(x, cf[1],cf[2], cf[3]), col=2, lwd=3, add=T)
+age0dat <- age0dat[which(age0dat$lhs_code!="U"),]
+ggplot(age0dat, aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~region)
 
-#just EBS
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.all <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"),], start=START)
-summary(fit.all)
-cf <- coef(fit.all)
-cf
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"),])
-curve(LvB(x, cf[1],cf[2], cf[3]), col=2, lwd=3, add=T)
+ggplot(age0dat[which(age0dat$length>300),], aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~region)
+#some huge A1+s
 
+ggplot(age0dat[which(age0dat$length<300),], aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~region)
+#removing A1+
 
-#just GOA
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.all <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"),], start=START)
-summary(fit.all)
-cf <- coef(fit.all)
-cf
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"),])
-curve(LvB(x, cf[1],cf[2], cf[3]), col=2, lwd=3, add=T)
+age0dat <- age0dat[which(age0dat$lhs_code!="A1+"),]
+ggplot(age0dat, aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~region)
+#reasonable
+#distributions look quite different between NBS and SEBS
 
+ggplot(age0dat, aes(length, col=lhs_code)) + geom_histogram() + facet_wrap(~sample_year) #which yrs reliable?
 
+table(age0dat$sample_year) #huge variation
+table(age0dat$region, age0dat$sample_year) #some years only SEBS, some only NBS
 
-#just GOA in 2009 versus 2017 versus 2023
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.goa09 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                          ebs_goa_surv$year=="2009"),], start=START)
-summary(fit.goa09)
-cf.goa09 <- coef(fit.goa09)
-cf.goa09
+ggplot(age0dat, aes(sample_year, length, col=region)) + geom_point()
 
-fit.goa15 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$year=="2015"),], start=START)
-summary(fit.goa15)
-cf.goa15 <- coef(fit.goa15)
-cf.goa15
+ggplot(age0dat, aes(sample_year, length, col=month)) + geom_point()
+table(age0dat$month, age0dat$year)
 
-fit.goa17 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$year=="2017"),], start=START)
-summary(fit.goa17)
-cf.goa17 <- coef(fit.goa17)
-cf.goa17
+ggplot(age0dat, aes(gear_in_longitude, gear_in_latitude)) + geom_point() + facet_wrap(~sample_year)
 
-fit.goa19 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$year=="2019"),], start=START)
-summary(fit.goa19)
-cf.goa19 <- coef(fit.goa19)
-cf.goa19
+ggplot(age0dat, aes(haulback_longitude, haulback_latitude, col=length)) + geom_point() + facet_wrap(~sample_year)
+ggplot(age0dat, aes(haulback_longitude, haulback_latitude, col=month)) + geom_point() + facet_wrap(~sample_year)
 
-fit.goa23 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$year=="2023"),], start=START)
-summary(fit.goa23)
-cf.goa23 <- coef(fit.goa23)
-cf.goa23
+ggplot(age0dat, aes(haulback_longitude, haulback_latitude, col=as.factor(sample_year))) + geom_point()
 
-# Visualize the fitted model:
-plot(LENGTH~ base:::jitter(AGE, 1.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2009"|ebs_goa_surv$year=="2015"|
-                                            ebs_goa_surv$year=="2017"|ebs_goa_surv$year=="2019"|ebs_goa_surv$year=="2023"),], col=as.factor(year))
-curve(LvB(x, cf.goa09[1],cf.goa09[2], cf.goa09[3]), col=1, lwd=3, add=T)
-curve(LvB(x, cf.goa15[1],cf.goa15[2], cf.goa15[3]), col=2, lwd=3, add=T)
-curve(LvB(x, cf.goa17[1],cf.goa17[2], cf.goa17[3]), col=3, lwd=3, add=T)
-curve(LvB(x, cf.goa19[1],cf.goa19[2], cf.goa19[3]), col=4, lwd=3, add=T)
-curve(LvB(x, cf.goa23[1],cf.goa23[2], cf.goa23[3]), col=5, lwd=3, add=T)
+ggplot(age0dat, aes(haulback_longitude, haulback_latitude, col=day)) + geom_point() + facet_wrap(~month)
 
-legend("bottomright", legend=c(2009, 2015, 2017, 2019, 2023),
-       col=c(1:5), lty=1, cex=0.8, title="Year")
-
-
-#MULTIPANEL
-par(mfrow=c(2,3))
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2009"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goa09[1],cf.goa09[2], cf.goa09[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2015"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goa15[1],cf.goa15[2], cf.goa15[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2017"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goa17[1],cf.goa17[2], cf.goa17[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2019"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goa19[1],cf.goa19[2], cf.goa19[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$year=="2023"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goa23[1],cf.goa23[2], cf.goa23[3]), col=1, lwd=3, add=T)
-
-
-
-#just EBS in 2009 versus 2017 versus 2023
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.ebs09 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$year=="2009"),], start=START)
-summary(fit.ebs09)
-cf.ebs09 <- coef(fit.ebs09)
-cf.ebs09
-
-fit.ebs15 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$year=="2015"),], start=START)
-summary(fit.ebs15)
-cf.ebs15 <- coef(fit.ebs15)
-cf.ebs15
-
-fit.ebs17 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$year=="2017"),], start=START)
-summary(fit.ebs17)
-cf.ebs17 <- coef(fit.ebs17)
-cf.ebs17
-
-fit.ebs19 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$year=="2019"),], start=START)
-summary(fit.ebs19)
-cf.ebs19 <- coef(fit.ebs19)
-cf.ebs19
-
-fit.ebs23 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$year=="2023"),], start=START)
-summary(fit.ebs23)
-cf.ebs23 <- coef(fit.ebs23)
-cf.ebs23
-
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                            ebs_goa_surv$year=="2009"|ebs_goa_surv$year=="2015"|
-                                            ebs_goa_surv$year=="2017"|ebs_goa_surv$year=="2019"|ebs_goa_surv$year=="2023"),], col=as.factor(year))
-curve(LvB(x, cf.ebs09[1],cf.ebs09[2], cf.ebs09[3]), col=1, lwd=3, add=T)
-curve(LvB(x, cf.ebs15[1],cf.ebs15[2], cf.ebs15[3]), col=2, lwd=3, add=T)
-curve(LvB(x, cf.ebs17[1],cf.ebs17[2], cf.ebs17[3]), col=3, lwd=3, add=T)
-curve(LvB(x, cf.ebs19[1],cf.ebs19[2], cf.ebs19[3]), col=4, lwd=3, add=T)
-curve(LvB(x, cf.ebs23[1],cf.ebs23[2], cf.ebs23[3]), col=5, lwd=3, add=T)
-
-
-#MULTIPANEL
-par(mfrow=c(2,3))
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$year=="2009"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.ebs09[1],cf.ebs09[2], cf.ebs09[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$year=="2015"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.ebs15[1],cf.ebs15[2], cf.ebs15[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$year=="2017"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.ebs17[1],cf.ebs17[2], cf.ebs17[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$year=="2019"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.ebs19[1],cf.ebs19[2], cf.ebs19[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$year=="2023"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.ebs23[1],cf.ebs23[2], cf.ebs23[3]), col=1, lwd=3, add=T)
-
-
-
-
-#plot by cohort=====
-
-names(ebs_goa_surv)
-ebs_goa_surv$cohort <- as.numeric(ebs_goa_surv$year) - ebs_goa_surv$AGE
-
-
-#just GOA in 2009 versus 2017 versus 2023 BUT COHORT
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-fit.goaC09 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$cohort=="2009"),], start=START)
-summary(fit.goaC09)
-cf.goaC09 <- coef(fit.goaC09)
-cf.goaC09
-
-fit.goaC15 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$cohort=="2015"),], start=START)
-summary(fit.goaC15)
-cf.goaC15 <- coef(fit.goaC15)
-cf.goaC15
-
-fit.goaC17 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$cohort=="2017"),], start=START)
-summary(fit.goaC17)
-cf.goaC17 <- coef(fit.goaC17)
-cf.goaC17
-
-fit.goaC05 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$cohort=="2005"),], start=START)
-summary(fit.goaC05)
-cf.goaC05 <- coef(fit.goaC05)
-cf.goaC05
-
-fit.goaC10 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                            ebs_goa_surv$cohort=="2010"),], start=START)
-summary(fit.goaC10)
-cf.goaC10 <- coef(fit.goaC10)
-cf.goaC10
-
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                            ebs_goa_surv$cohort=="2009"|ebs_goa_surv$cohort=="2015"|
-                                            ebs_goa_surv$cohort=="2017"|ebs_goa_surv$cohort=="2019"|ebs_goa_surv$cohort=="2023"),], col=as.factor(cohort))
-curve(LvB(x, cf.goaC05[1],cf.goaC05[2], cf.goaC05[3]), col=1, lwd=3, add=T)
-curve(LvB(x, cf.goaC09[1],cf.goaC09[2], cf.goaC09[3]), col=2, lwd=3, add=T)
-curve(LvB(x, cf.goaC10[1],cf.goaC10[2], cf.goaC10[3]), col=3, lwd=3, add=T)
-curve(LvB(x, cf.goaC15[1],cf.goaC15[2], cf.goaC15[3]), col=4, lwd=3, add=T)
-curve(LvB(x, cf.goaC17[1],cf.goaC17[2], cf.goaC17[3]), col=5, lwd=3, add=T)
-
-
-
-#MULTIPANEL
-par(mfrow=c(2,3))
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                ebs_goa_surv$cohort=="2005"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goaC05[1],cf.goaC05[2], cf.goaC05[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                ebs_goa_surv$cohort=="2009"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goaC09[1],cf.goaC09[2], cf.goaC09[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                ebs_goa_surv$cohort=="2010"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goaC10[1],cf.goaC10[2], cf.goaC10[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                ebs_goa_surv$cohort=="2015"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goaC15[1],cf.goaC15[2], cf.goaC15[3]), col=1, lwd=3, add=T)
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"&
-                                                                ebs_goa_surv$cohort=="2017"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.goaC17[1],cf.goaC17[2], cf.goaC17[3]), col=1, lwd=3, add=T)
-
-#AH not enough data for cohorts in the GOA
-
-#EBS LvB by cohort=============
-
-#long and ugly
-
-#just GOA in 2009 versus 2017 versus 2023 BUT COHORT
-START <- c(k = 0.25, L.inf = 900, t0 = 0)
-
-# fit.bsC88 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1988"),], start=START)
-# summary(fit.bsC88)
-# cf.bsC88 <- coef(fit.bsC88)
-# cf.bsC88
-# 
-# fit.bsC89 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1989"),], start=START)
-# summary(fit.bsC89)
-# cf.bsC89 <- coef(fit.bsC89)
-# cf.bsC89
-# 
-# fit.bsC90 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1990"),], start=START)
-# summary(fit.bsC90)
-# cf.bsC90 <- coef(fit.bsC90)
-# cf.bsC90
-# 
-# fit.bsC91 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1991"),], start=START)
-# summary(fit.bsC91)
-# cf.bsC91 <- coef(fit.bsC91)
-# cf.bsC91
-# 
-# fit.bsC92 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1992"),], start=START)
-# summary(fit.bsC92)
-# cf.bsC92 <- coef(fit.bsC92)
-# cf.bsC92
-# 
-# fit.bsC93 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="1993"),], start=START)
-# summary(fit.bsC93)
-# cf.bsC93 <- coef(fit.bsC93)
-# cf.bsC93
-
-fit.bsC94 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1994"),], start=START)
-summary(fit.bsC94)
-cf.bsC94 <- coef(fit.bsC94)
-cf.bsC94
-
-fit.bsC95 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1995"),], start=START)
-summary(fit.bsC95)
-cf.bsC95 <- coef(fit.bsC95)
-cf.bsC95
-
-fit.bsC96 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1996"),], start=START)
-summary(fit.bsC96)
-cf.bsC96 <- coef(fit.bsC96)
-cf.bsC96
-
-fit.bsC97 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1997"),], start=START)
-summary(fit.bsC97)
-cf.bsC97 <- coef(fit.bsC97)
-cf.bsC97
-
-fit.bsC98 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1998"),], start=START)
-summary(fit.bsC98)
-cf.bsC98 <- coef(fit.bsC98)
-cf.bsC98
-
-fit.bsC99 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="1999"),], start=START)
-summary(fit.bsC99)
-cf.bsC99 <- coef(fit.bsC99)
-cf.bsC99
-
-fit.bsC00 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2000"),], start=START)
-summary(fit.bsC00)
-cf.bsC00 <- coef(fit.bsC00)
-cf.bsC00
-
-fit.bsC01 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2001"),], start=START)
-summary(fit.bsC01)
-cf.bsC01 <- coef(fit.bsC01)
-cf.bsC01
-
-fit.bsC02 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2002"),], start=START)
-summary(fit.bsC02)
-cf.bsC02 <- coef(fit.bsC02)
-cf.bsC02
-
-fit.bsC03 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2003"),], start=START)
-summary(fit.bsC03)
-cf.bsC03 <- coef(fit.bsC03)
-cf.bsC03
-
-fit.bsC04 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2004"),], start=START)
-summary(fit.bsC04)
-cf.bsC04 <- coef(fit.bsC04)
-cf.bsC04
-
-fit.bsC05 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2005"),], start=START)
-summary(fit.bsC05)
-cf.bsC05 <- coef(fit.bsC05)
-cf.bsC05
-
-fit.bsC06 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2006"),], start=START)
-summary(fit.bsC06)
-cf.bsC06 <- coef(fit.bsC06)
-cf.bsC06
-
-fit.bsC07 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2007"),], start=START)
-summary(fit.bsC07)
-cf.bsC07 <- coef(fit.bsC07)
-cf.bsC07
-
-fit.bsC08 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2008"),], start=START)
-summary(fit.bsC08)
-cf.bsC08 <- coef(fit.bsC08)
-cf.bsC08
-
-fit.bsC09 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                             ebs_goa_surv$cohort=="2009"),], start=START)
-summary(fit.bsC09)
-cf.bsC09 <- coef(fit.bsC09)
-cf.bsC09
-
-fit.bsC10 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2010"),], start=START)
-summary(fit.bsC10)
-cf.bsC10 <- coef(fit.bsC10)
-cf.bsC10
-
-fit.bsC11 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2011"),], start=START)
-summary(fit.bsC11)
-cf.bsC11 <- coef(fit.bsC11)
-cf.bsC11
-
-fit.bsC12 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2012"),], start=START)
-summary(fit.bsC12)
-cf.bsC12 <- coef(fit.bsC12)
-cf.bsC12
-
-fit.bsC13 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2013"),], start=START)
-summary(fit.bsC13)
-cf.bsC13 <- coef(fit.bsC13)
-cf.bsC13
-
-fit.bsC14 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2014"),], start=START)
-summary(fit.bsC14)
-cf.bsC14 <- coef(fit.bsC14)
-cf.bsC14
-
-fit.bsC14 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2014"),], start=START)
-summary(fit.bsC14)
-cf.bsC14 <- coef(fit.bsC14)
-cf.bsC14
-
-fit.bsC15 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2015"),], start=START)
-summary(fit.bsC15)
-cf.bsC15 <- coef(fit.bsC15)
-cf.bsC15
-
-fit.bsC16 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2016"),], start=START)
-summary(fit.bsC16)
-cf.bsC16 <- coef(fit.bsC16)
-cf.bsC16
-
-fit.bsC17 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2017"),], start=START)
-summary(fit.bsC17)
-cf.bsC17 <- coef(fit.bsC17)
-cf.bsC17
-
-fit.bsC18 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2018"),], start=START)
-summary(fit.bsC18)
-cf.bsC18 <- coef(fit.bsC18)
-cf.bsC18
-
-fit.bsC19 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2019"),], start=START)
-summary(fit.bsC19)
-cf.bsC19 <- coef(fit.bsC19)
-cf.bsC19
-
-fit.bsC20 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2020"),], start=START)
-summary(fit.bsC20)
-cf.bsC20 <- coef(fit.bsC20)
-cf.bsC20
-
-fit.bsC21 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                            ebs_goa_surv$cohort=="2021"),], start=START)
-summary(fit.bsC21)
-cf.bsC21 <- coef(fit.bsC21)
-cf.bsC21
-
-# fit.bsC22 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="2022"),], start=START)
-# summary(fit.bsC22)
-# cf.bsC22 <- coef(fit.bsC22)
-# cf.bsC22
-# 
-# fit.bsC23 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="2023"),], start=START)
-# summary(fit.bsC23)
-# cf.bsC23 <- coef(fit.bsC23)
-# cf.bsC23
-# 
-# fit.bsC24 <- nls(LENGTH ~ LvB(AGE, k, L.inf, t0), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                             ebs_goa_surv$cohort=="2024"),], start=START)
-# summary(fit.bsC24)
-# cf.bsC24 <- coef(fit.bsC24)
-# cf.bsC24
-# 
-
-# Visualize the fitted model:
-plot(LENGTH~ AGE, data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"),])
-curve(LvB(x, cf.bsC00[1],cf.bsC00[2], cf.bsC00[3]), col=1, lty=1, lwd=3, add=T)
-curve(LvB(x, cf.bsC01[1],cf.bsC01[2], cf.bsC01[3]), col=2, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC02[1],cf.bsC02[2], cf.bsC02[3]), col=3, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC03[1],cf.bsC03[2], cf.bsC03[3]), col=4, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC04[1],cf.bsC04[2], cf.bsC04[3]), col=5, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC05[1],cf.bsC05[2], cf.bsC05[3]), col=6, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC06[1],cf.bsC06[2], cf.bsC06[3]), col=7, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC07[1],cf.bsC07[2], cf.bsC07[3]), col=8, lty=1,lwd=3, add=T)
-curve(LvB(x, cf.bsC08[1],cf.bsC08[2], cf.bsC08[3]), col=1, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC09[1],cf.bsC09[2], cf.bsC09[3]), col=2, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC10[1],cf.bsC10[2], cf.bsC10[3]), col=3, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC11[1],cf.bsC11[2], cf.bsC11[3]), col=4, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC12[1],cf.bsC12[2], cf.bsC12[3]), col=5, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC13[1],cf.bsC13[2], cf.bsC13[3]), col=6, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC14[1],cf.bsC14[2], cf.bsC14[3]), col=7, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC15[1],cf.bsC15[2], cf.bsC15[3]), col=8, lty=2, lwd=3, add=T)
-curve(LvB(x, cf.bsC16[1],cf.bsC16[2], cf.bsC16[3]), col=1, lty=3, lwd=3, add=T)
-
-legend("bottomright", legend=c(2000:2016),
-       col=c(1:8, 1:8, 1), lty=c(rep(1,8), rep(2, 8), 3), cex=0.8, title="Cohort")
-
-
-#MULTIPANEL
-
-#loop isn't working
-# cohorts <- unique(ebs_goa_surv$cohort[which(ebs_goa_surv$REGION=="BS")])
-# cohorts <- na.omit(cohorts)
-# cohorts <- sort(cohorts, decreasing = FALSE)
-# cohorts <- cohorts[which(cohorts>1993 & cohorts<2022)]
-# for(i in 1:length(cohorts)){
-# temp_co <- cohorts[i]
-# temp_n <- str_sub(temp_co,-2,-1)
-# plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-#                                                                 ebs_goa_surv$cohort==temp_co),], col=as.factor(year),
-#      xlim=c(0,10), ylim=c(100,1100))
-# curve(LvB(x, noquote(paste0("cf.bsC",temp_n,"[1]")),
-#           noquote(paste0("cf.bsC",temp_n,"[2]")), 
-#           noquote(paste0("cf.bsC",temp_n,"[3]"))), 
-#       col=1, lwd=3, add=T)
-# }
-
-par(mfrow=c(4,4))
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1994"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC94[1],cf.bsC94[2], cf.bsC94[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1994")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1995"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC95[1],cf.bsC95[2], cf.bsC95[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1995")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1996"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC96[1],cf.bsC96[2], cf.bsC96[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1996")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1997"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC97[1],cf.bsC97[2], cf.bsC97[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1997")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1998"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC98[1],cf.bsC98[2], cf.bsC98[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1998")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="1999"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC99[1],cf.bsC99[2], cf.bsC99[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "1999")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2000"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC00[1],cf.bsC00[2], cf.bsC00[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2000")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2001"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC01[1],cf.bsC01[2], cf.bsC01[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2001")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2002"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC02[1],cf.bsC02[2], cf.bsC02[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2002")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2003"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC03[1],cf.bsC03[2], cf.bsC03[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2003")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2004"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC04[1],cf.bsC04[2], cf.bsC04[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2004")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2005"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC05[1],cf.bsC05[2], cf.bsC05[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2005")
-
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2006"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC06[1],cf.bsC06[2], cf.bsC06[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2006")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2007"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC07[1],cf.bsC07[2], cf.bsC07[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2007")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2008"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC08[1],cf.bsC08[2], cf.bsC08[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2008")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2009"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC09[1],cf.bsC09[2], cf.bsC09[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2009")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2010"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC10[1],cf.bsC10[2], cf.bsC10[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2010")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2011"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC11[1],cf.bsC11[2], cf.bsC11[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2011")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2012"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC12[1],cf.bsC12[2], cf.bsC12[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2012")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2013"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC13[1],cf.bsC13[2], cf.bsC13[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2013")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2014"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC14[1],cf.bsC14[2], cf.bsC14[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2014")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2015"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC15[1],cf.bsC15[2], cf.bsC15[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2015")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2016"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC16[1],cf.bsC16[2], cf.bsC16[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2016")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2017"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC17[1],cf.bsC17[2], cf.bsC17[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2017")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2018"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC18[1],cf.bsC18[2], cf.bsC18[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2018")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2019"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC19[1],cf.bsC19[2], cf.bsC19[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2019")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2020"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC20[1],cf.bsC20[2], cf.bsC20[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2020")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2021"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC21[1],cf.bsC21[2], cf.bsC21[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2021")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2022"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC22[1],cf.bsC22[2], cf.bsC22[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2022")
-
-plot(LENGTH~ base:::jitter(AGE, 0.5), data=ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"&
-                                                                ebs_goa_surv$cohort=="2023"),], col=as.factor(year),
-     xlim=c(0,10), ylim=c(100,1100))
-curve(LvB(x, cf.bsC23[1],cf.bsC23[2], cf.bsC23[3]), col=1, lwd=3, add=T)
-text(x = 1, y = 800, label = "2023")
 
 #match size to temp data=======================
 
@@ -790,6 +104,10 @@ text(x = 1, y = 800, label = "2023")
 
 goa <- ebs_goa_surv[which(ebs_goa_surv$REGION=="GOA"),]
 goa$year <- as.numeric(goa$year)
+
+#goa MOM6
+
+goa_monthly_means_surv_area <- read.csv(file=paste0(wd,"/data/goa_tob_surveyarea_monthly_means_MOM6.csv"))
 
 #read in HYCOM temp data
 # get hycom data
@@ -809,7 +127,8 @@ goa_w_temp <- goa_w_temp %>% rename(hycom_may_100='hycom')
 
 #SEBS match=========
 
-sebs_monthly_means_surv_area <- read.csv(paste0(wd,"/data/sebs_surveyarea_monthly_means_MOM6.csv"))
+#sebs_monthly_means_surv_area <- read.csv(paste0(wd,"/data/sebs_surveyarea_monthly_means_MOM6.csv"))
+sebs_monthly_means_surv_area <- read.csv(file=paste0(wd,"/data/sebs_tob_surveyarea_monthly_means_MOM6.csv"))
 
 seb_size <- ebs_goa_surv[which(ebs_goa_surv$REGION=="BS"),]
 seb_size$year <- as.numeric(seb_size$year)
@@ -817,10 +136,11 @@ seb_size$year <- as.numeric(seb_size$year)
 sebs_monthly_means_surv_area$month_name <- paste0("btm_temp_",sebs_monthly_means_surv_area$month)
 
 sebs_monthly_wide <- sebs_monthly_means_surv_area[,-c(2)] %>% pivot_wider(names_from = month_name,
-                                                                  values_from = mean_btm_temp)
+                                                                  values_from = mean_tob)
 
 seb_w_temp <- left_join(seb_size, sebs_monthly_wide, by=join_by(year==year))
 
+seb_w_temp <- seb_w_temp[ , !names(seb_w_temp) %in% c("geometry")]
 
 
 #GAMs on GOA========
@@ -882,6 +202,8 @@ season_means <- sebs_analysis_dat %>% group_by(year) %>%
                                                     btm_temp_3, btm_temp_4),na.rm=TRUE))
 
 sebs_analysis_dat <- left_join(sebs_analysis_dat, season_means)
+
+sebs_analysis_dat <- sebs_analysis_dat[ , !names(sebs_analysis_dat) %in% c("geometry")]
 
 last_yr_mean <- sebs_analysis_dat %>% group_by(year, AGE) %>%
   summarize(mean_length_last_year=mean(LENGTH, na.rm=TRUE))
@@ -1229,7 +551,14 @@ xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995,
                            1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
 colnames(xtrayrs) <- names(season_means)
 
-season_means <- rbind(season_means, xtrayrs)
+xtra_means <- sebs_monthly_wide %>% group_by(year) %>%
+  summarise(mean_btm_temp_apr_june=mean(c(btm_temp_4, btm_temp_5,
+                                          btm_temp_6),na.rm=TRUE),
+            mean_btm_temp_JFMA=mean(c(btm_temp_1, btm_temp_2,
+                                      btm_temp_3, btm_temp_4),na.rm=TRUE))
+
+
+season_means <- rbind(season_means, xtrayrs) #most of these yrs we have temp data, get from mom6 
 
 exp_dat$mean_spring_exp <- NA
 exp_dat$cumm_spring_exp <- NA
@@ -1242,7 +571,7 @@ for(i in 1:length(exp_dat$year)){
     temp_yr <- temp_row$year
     temps <- as.vector(NA)
     for(k in 1:(temp_age+1)){
-      temp_temp <- season_means$mean_btm_temp_apr_june[which(season_means$year==temp_yr-(k-1))] #wrong here
+      temp_temp <- xtra_means$mean_btm_temp_apr_june[which(xtra_means$year==temp_yr-(k-1))] #wrong here
       
       temps[k] <- temp_temp
     }
@@ -1500,11 +829,13 @@ exp_dat$AGE <- as.numeric(as.character(exp_dat$AGE))
 #use season_means from above
 
 #fill in missing years
-xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995, 
-                        1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
-colnames(xtrayrs) <- names(season_means)
+# xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995, 
+#                         1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
+# colnames(xtrayrs) <- names(season_means)
+# 
+# season_means <- rbind(season_means, xtrayrs)
 
-season_means <- rbind(season_means, xtrayrs)
+#use xtra_means instead, from above
 
 exp_dat$mean_spring_exp <- NA
 exp_dat$cumm_spring_exp <- NA
@@ -1517,7 +848,7 @@ for(i in 1:length(exp_dat$year)){
     temp_yr <- temp_row$year
     temps <- as.vector(NA)
     for(k in 1:(temp_age+1)){
-      temp_temp <- season_means$mean_btm_temp_apr_june[which(season_means$year==temp_yr-(k-1))] #wrong here
+      temp_temp <- xtra_means$mean_btm_temp_apr_june[which(xtra_means$year==temp_yr-(k-1))] #wrong here
       
       temps[k] <- temp_temp
     }
@@ -1763,21 +1094,51 @@ ggplot(goa_analysis_dat[which(goa_analysis_dat$year>2007),], aes(ann_increment, 
 
 #thermal experience early life only=================
 
-#trying w a match, if not go back to L1221 for loop
 
 #Bering
-cohort_means2$thermalexp_upto3 <- NA
 names(cohort_means2)
-#maybe needs to be run on a df of means not indiv lengths
 
-i<- 1
-for(i in 1:length(cohort_means2$thermalexp_upto3)){
-temp_row <- cohort_means2[i,]
-cohort_means2$thermalexp_upto3[i] <- cohort_means2$mean_spring_exp[which(cohort_means2$cohort==temp_row$cohort&
-                                                                           cohort_means2$AGE==3 )]
+#use season_means from above
+
+#fill in missing years
+# xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995, 
+#                         1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
+# colnames(xtrayrs) <- names(season_means)
+# 
+# early_means <- rbind(season_means, xtrayrs)
+
+early_dat <- cohort_means2
+
+early_dat$AGE <- as.numeric(as.character(early_dat$AGE))
+
+
+early_dat$thermalexp_upto3 <- NA
+
+i<-1
+for(i in 1:length(early_dat$cohort)){
+  temp_row <- early_dat[i,]
+  if(temp_row$cohort>2000){
+    temp_age <- temp_row$AGE
+    temp_co <- temp_row$cohort
+        temps <- as.vector(NA)
+    for(k in 1:4){ 
+      temp_temp <- xtra_means$mean_btm_temp_apr_june[which(xtra_means$year==temp_co+(k-1))] 
+      
+      temps[k] <- temp_temp 
+    }
+    early_therm <- mean(temps)
+    
+    early_dat$thermalexp_upto3[i] <- early_therm
+  }
+  else next
 }
-#Above doesn't work for early cohorts b/c we don't have the earlier years included in cohort_means2
-#redo using the original thermal experience loop since we do have the temps for those yrs
+#loop now working! Need to go back and get MOM6 estimates post 2019
+
+ggplot(early_dat, aes(cohort, thermalexp_upto3)) + geom_point() +
+  geom_line() + facet_wrap(~AGE)
+
+ggplot(early_dat, aes(thermalexp_upto3, mean_LAA_cohort)) + geom_point() + geom_smooth(method="lm") +
+facet_wrap(~AGE, scales="free")
 
 
 
