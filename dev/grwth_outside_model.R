@@ -137,56 +137,17 @@ sebs_monthly_means_surv_area$month_name <- paste0("btm_temp_",sebs_monthly_means
 
 sebs_monthly_wide <- sebs_monthly_means_surv_area[,-c(2)] %>% pivot_wider(names_from = month_name,
                                                                   values_from = mean_tob)
+rm(sebs_monthly_means_surv_area)
 
 seb_w_temp <- left_join(seb_size, sebs_monthly_wide, by=join_by(year==year))
 
 seb_w_temp <- seb_w_temp[ , !names(seb_w_temp) %in% c("geometry")]
 
+#Analysis data====
 
-#GAMs on GOA========
-
-library(gamm4)
-library(mgcv)
-library(itsadug)
-library(mgcViz)
-library(gratia)
-library(gamm4)
-
-table(goa_w_temp$HAUL, goa_w_temp$year) #random should be HAUL in year not just haul
-
-table(goa_w_temp$AGE, goa_w_temp$year)
 
 goa_analysis_dat <- goa_w_temp[which(goa_w_temp$AGE<8),]
 goa_analysis_dat$AGE <- as.factor(goa_analysis_dat$AGE)
-
-mod1 <- gamm(LENGTH ~ AGE + s(hycom_may_100, k=5) + ti(START_LONGITUDE, START_LATITUDE, by=AGE),
-             random=list(HAUL=~1), data=goa_analysis_dat, REML=FALSE)
-gam.check(mod1[[2]])
-summary(mod1[[2]])
-plot(mod1[[2]])
-
-
-mod2 <- gamm(LENGTH ~ AGE + s(hycom_may_100, by=AGE, k=5) + ti(START_LONGITUDE, START_LATITUDE, by=AGE),
-             random=list(HAUL=~1), data=goa_analysis_dat, REML=FALSE)
-gam.check(mod2[[2]])
-summary(mod2[[2]])
-plot(mod2[[2]])
-
-fvisgam(mod2[[2]], view=c("START_LONGITUDE", "START_LATITUDE"))
-
-v<-getViz(mod2[[2]])
-
-plot(v, select=2:8)
-
-draw(mod2[[2]], dist=0.05, residuals=TRUE)
-
-draw(mod2, dist=0.05)
-
-ggplot(goa_w_temp, aes(hycom_may_100, LENGTH)) + geom_point() + geom_smooth() + facet_wrap(~AGE)
-
-#perhaps spring/summer avg makes more sense
-#or thermal experience
-#GOA will be hard b/c so few years of data
 
 
 #Data BS=========================
@@ -243,135 +204,6 @@ ggplot(sebs_analysis_dat, aes(year, ann_increment,
                               col=mean_btm_temp_apr_june)) +
   geom_point() + geom_line() + facet_wrap(~AGE)
 
-
-
-#GAMs======
-
-modsb1 <- gamm(LENGTH ~ AGE + s(btm_temp_5, k=5) + ti(START_LONGITUDE, START_LATITUDE, by=AGE),
-             #random=list(HAUL=~1), 
-             data=sebs_analysis_dat, REML=FALSE)
-gam.check(modsb1[[2]])
-summary(modsb1[[2]])
-plot(modsb1[[2]])
-
-
-modsb2 <- gamm(LENGTH ~ AGE + s(btm_temp_5, by=AGE, k=5) + ti(START_LONGITUDE, START_LATITUDE, by=AGE),
-             #random=list(HAUL=~1), 
-             data=sebs_analysis_dat, REML=FALSE)
-gam.check(modsb2[[2]])
-summary(modsb2[[2]])
-plot(modsb2[[2]])
-
-
-modsb3 <- gamm(LENGTH ~ AGE + s(btm_temp_5, by=AGE, k=5) + ti(START_LONGITUDE, START_LATITUDE),
-               #random=list(HAUL=~1), 
-               data=sebs_analysis_dat, REML=FALSE)
-gam.check(modsb3[[2]])
-summary(modsb3[[2]])
-plot(modsb3[[2]])
-
-table(sebs_analysis_dat$AGE, sebs_analysis_dat$year)
-
-#nested random effects in gamm4
-
-nest1 <- gamm4(LENGTH ~ AGE + s(btm_temp_5, by=AGE, k=5) + t2(START_LONGITUDE, START_LATITUDE, by=AGE),
-               random=~(1|year/HAUL), #haul is nested in year (multiple hauls w/in each year)
-               data=sebs_analysis_dat, REML=FALSE) #takes ~30 minutes to run
-gam.check(nest1[[2]])
-summary(nest1[[2]])
-plot(nest1[[2]])
-
-fvisgam(nest1[[2]], view=c("START_LONGITUDE", "START_LATITUDE"))
-
-v<-getViz(nest1[[2]])
-
-plot(v, select=2:8)
-
-draw(nest1[[2]], dist=0.05, residuals=TRUE)
-
-draw(nest1, dist=0.05)
-
-cv <- gratia::conditional_values(nest1) #need to update gratia?
-cv |> draw()
-
-
-nest2 <- gamm4(LENGTH ~ AGE + s(btm_temp_5, k=5) + t2(START_LONGITUDE, START_LATITUDE, by=AGE),
-               random=~(1|year/HAUL), #haul is nested in year (multiple hauls w/in each year)
-               data=sebs_analysis_dat, REML=FALSE) #takes ~30 minutes to run
-gam.check(nest2[[2]])
-summary(nest2[[2]])
-plot(nest2[[2]])
-
-summary(nest2$gam, nest1$gam)
-
-#with weight
-
-nest_w1 <- gamm4(WEIGHT ~ AGE + s(btm_temp_5, by=AGE, k=5) + t2(START_LONGITUDE, START_LATITUDE, by=AGE),
-               random=~(1|year/HAUL), #haul is nested in year (multiple hauls w/in each year)
-               data=sebs_analysis_dat, REML=FALSE) #takes ~30 minutes to run
-gam.check(nest_w1[[2]])
-summary(nest_w1[[2]])
-plot(nest_w1[[2]])
-
-draw(nest_w1[[2]], dist=0.05, residuals=TRUE)
-
-draw(nest_w1[[2]], dist=0.05)
-
-
-
-#spring growing season
-
-spr1 <- gamm4(LENGTH ~ AGE + s(mean_btm_temp_apr_june, by=AGE, k=5) + t2(START_LONGITUDE, START_LATITUDE, by=AGE),
-               random=~(1|year/HAUL), #haul is nested in year (multiple hauls w/in each year)
-               data=sebs_analysis_dat, REML=FALSE) #takes ~30 minutes to run
-gam.check(spr1[[2]])
-summary(spr1[[2]])
-plot(spr1[[2]])
-
-
-
-draw(spr1[[2]], dist=0.05, residuals=TRUE)
-
-draw(spr1[[2]], select=1:7, dist=0.05, residuals=TRUE)
-
-draw(spr1[[2]], dist=0.05)
-
-
-#ALSO TRY
-#thermal experience?
-#increment
-#individual increment from last years mean (to keep spatial aspect)
-
-
-#spring season AND indiv increment
-
-indivspr1 <- gamm4(indiv_increment ~ AGE + s(mean_btm_temp_apr_june, by=AGE, k=5) + t2(START_LONGITUDE, START_LATITUDE, by=AGE),
-              random=~(1|year/HAUL), #haul is nested in year (multiple hauls w/in each year)
-              data=sebs_analysis_dat, REML=FALSE) #takes ~30 minutes to run
-gam.check(indivspr1[[2]])
-summary(indivspr1[[2]])
-plot(indivspr1[[2]])
-
-draw(indivspr1[[2]], dist=0.05, residuals=TRUE)
-
-draw(indivspr1[[2]], dist=0.05)
-
-ggplot(sebs_analysis_dat[which(sebs_analysis_dat$AGE==3 ),],
-       aes(as.factor(year), indiv_increment, col=AGE)) + #geom_point() +
-  geom_boxplot()
-
-ggplot(sebs_analysis_dat[which(sebs_analysis_dat$AGE==3|
-                                 sebs_analysis_dat$AGE==4 ),],
-       aes(as.factor(year), indiv_increment, col=AGE)) + #geom_point() +
-  geom_boxplot() + abline(h=0, col="black")
-
-ggplot(sebs_analysis_dat[which(sebs_analysis_dat$AGE==3 ),],
-       aes(as.factor(year), indiv_increment, col=mean_btm_temp_apr_june)) + #geom_point() +
-  geom_boxplot() + abline(h=0, col="black")
-
-ggplot(sebs_analysis_dat[which(sebs_analysis_dat$AGE==4 ),],
-       aes(as.factor(year), indiv_increment, col=mean_btm_temp_apr_june)) + #geom_point() +
-  geom_boxplot() + abline(h=0, col="black")
 
 
 
