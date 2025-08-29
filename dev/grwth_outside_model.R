@@ -8,6 +8,7 @@
 
 library(tidyverse)
 #library(ggpubr)
+library(cowplot)
 
 #get size data=====
 wd <- getwd()
@@ -443,7 +444,7 @@ cohort_means2 <- exp_dat[which(exp_dat$REGION=="BS"&
 cohort_means2$names <- paste0("mean_LAA_", cohort_means2$AGE)
 
 #FIX
-cohort_means2 <- left_join(cohort_means2, exp_dat[,c(39:41, 20, 21)], by=join_by("cohort"=="cohort", "AGE"=="AGE"))
+cohort_means2 <- left_join(cohort_means2, exp_dat[,c(38:40, 20, 21)], by=join_by("cohort"=="cohort", "AGE"=="AGE"))
 cohort_means2 <- cohort_means2[which(duplicated(cohort_means2)==FALSE),]
 
 cohort_wide_temp <- cohort_means2[,-c(2)] %>% pivot_wider(names_from= names,values_from = mean_LAA_cohort)
@@ -554,11 +555,21 @@ ggplot(cohort_means2[which(cohort_means2$cohort==2017|
 
 names(exp_dat)
 
+#growth incr spring exp
 ggplot(exp_dat[which(exp_dat$year>2007&exp_dat$AGE>1),], aes(mean_spring_exp, ann_increment)) + geom_point() + 
   facet_wrap(~AGE, scales="free") + geom_smooth(method="lm") + 
   ylab("Annual growth increment") + xlab("Mean Spring thermal experience") + theme_bw()
+#probably need to remake w just temp that year - otherwise could be bigger fish grow less b/calready bigger
 
+#growth incr this year temp
+ggplot(exp_dat[which(exp_dat$year>2007&exp_dat$AGE>1),], aes(mean_btm_temp_apr_june, ann_increment)) + geom_point() + 
+  facet_wrap(~AGE, scales="free") + geom_smooth(method="lm") + 
+  ylab("Annual growth increment") + xlab("Mean Spring thermal experience") + theme_bw()
 
+#growth incr this winter temp
+ggplot(exp_dat[which(exp_dat$year>2007&exp_dat$AGE>1),], aes(mean_btm_temp_JFMA, ann_increment)) + geom_point() + 
+  facet_wrap(~AGE, scales="free") + geom_smooth(method="lm") + 
+  ylab("Annual growth increment") + xlab("Mean Spring thermal experience") + theme_bw()
 
 # cohort_means2$increment <- NA
 # cohort_means2$increment <- as.numeric(cohort_means2$increment)
@@ -654,60 +665,60 @@ ggplot(goa_means[which(goa_means$AGE<9 &
 
 #try thermal experience======
 
-exp_dat <- sebs_analysis_dat
-
-exp_dat$AGE <- as.numeric(as.character(exp_dat$AGE))
-
-#use season_means from above
-
-#fill in missing years
-# xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995, 
-#                         1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
-# colnames(xtrayrs) <- names(season_means)
+# exp_dat <- sebs_analysis_dat 
 # 
-# season_means <- rbind(season_means, xtrayrs)
-
-#use xtra_means instead, from above
-
-exp_dat$mean_spring_exp <- NA
-exp_dat$cumm_spring_exp <- NA
-
-i<-1
-for(i in 1:length(exp_dat$year)){
-  temp_row <- exp_dat[i,]
-  if(temp_row$year>2000){
-    temp_age <- temp_row$AGE
-    temp_yr <- temp_row$year
-    temps <- as.vector(NA)
-    for(k in 1:(temp_age+1)){
-      temp_temp <- xtra_means$mean_btm_temp_apr_june[which(xtra_means$year==temp_yr-(k-1))] #wrong here
-      
-      temps[k] <- temp_temp
-    }
-    mean_spr_temp <- mean(temps)
-    cumm_spir_temp <- sum(temps)
-    
-    exp_dat$mean_spring_exp[i] <- mean_spr_temp
-    exp_dat$cumm_spring_exp[i] <- cumm_spir_temp 
-  }
-  else next
-}
-
-
-ggplot(exp_dat, aes(year, mean_spring_exp)) + geom_point() +
-  geom_line() + facet_wrap(~AGE)
-
-exp_dat$cohort <- exp_dat$year - exp_dat$AGE
-
-ggplot(exp_dat, aes(cohort, mean_spring_exp, col=as.factor(AGE))) + geom_point() +
-  geom_line() 
-
-ggplot(exp_dat[which(exp_dat$year>2007),], aes(AGE, mean_spring_exp, col=as.factor(cohort))) + geom_point() +
-  geom_line() 
-
-ggplot(exp_dat[which(exp_dat$year>2007&
-                       exp_dat$AGE==5),], aes(year, mean_spring_exp, col=as.factor(cohort))) + geom_point() +
-  geom_line() 
+# exp_dat$AGE <- as.numeric(as.character(exp_dat$AGE))
+# 
+# #use season_means from above
+# 
+# #fill in missing years
+# # xtrayrs <- data.frame(c(1990, 1991, 1992, 1993, 1994, 1995, 
+# #                         1996, 1997, 1998, 1999, 2020), c(rep(NA, 11)), c(rep(NA, 11)))
+# # colnames(xtrayrs) <- names(season_means)
+# # 
+# # season_means <- rbind(season_means, xtrayrs)
+# 
+# #use xtra_means instead, from above
+# 
+# exp_dat$mean_spring_exp <- NA
+# exp_dat$cumm_spring_exp <- NA
+# 
+# i<-1
+# for(i in 1:length(exp_dat$year)){
+#   temp_row <- exp_dat[i,]
+#   if(temp_row$year>2000){
+#     temp_age <- temp_row$AGE
+#     temp_yr <- temp_row$year
+#     temps <- as.vector(NA)
+#     for(k in 1:(temp_age+1)){
+#       temp_temp <- xtra_means$mean_btm_temp_apr_june[which(xtra_means$year==temp_yr-(k-1))] #wrong here
+#       
+#       temps[k] <- temp_temp
+#     }
+#     mean_spr_temp <- mean(temps)
+#     cumm_spir_temp <- sum(temps)
+#     
+#     exp_dat$mean_spring_exp[i] <- mean_spr_temp
+#     exp_dat$cumm_spring_exp[i] <- cumm_spir_temp 
+#   }
+#   else next
+# }
+# 
+# 
+# ggplot(exp_dat, aes(year, mean_spring_exp)) + geom_point() +
+#   geom_line() + facet_wrap(~AGE)
+# 
+# exp_dat$cohort <- exp_dat$year - exp_dat$AGE
+# 
+# ggplot(exp_dat, aes(cohort, mean_spring_exp, col=as.factor(AGE))) + geom_point() +
+#   geom_line() 
+# 
+# ggplot(exp_dat[which(exp_dat$year>2007),], aes(AGE, mean_spring_exp, col=as.factor(cohort))) + geom_point() +
+#   geom_line() 
+# 
+# ggplot(exp_dat[which(exp_dat$year>2007&
+#                        exp_dat$AGE==5),], aes(year, mean_spring_exp, col=as.factor(cohort))) + geom_point() +
+#   geom_line() 
 
 #GOA thermal experience-----
 
@@ -972,7 +983,8 @@ ggplot(early_dat, aes(cohort, thermalexp_upto3)) + geom_point() +
 ggplot(early_dat, aes(thermalexp_upto3, mean_LAA_cohort)) + geom_point() + geom_smooth(method="lm") +
 facet_wrap(~AGE, scales="free")
 
-
+ggplot(early_dat, aes(thermalexp_upto3, mean_LAA_cohort, col=cohort)) + geom_point() + geom_smooth(method="lm") +
+  facet_wrap(~AGE, scales="free")
 
 
 
